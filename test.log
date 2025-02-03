@@ -1,0 +1,29 @@
+   90 : plot(vonMises, fill = 1, cmm = "Von Mises Stress", wait = 1, value = true, ps = "vonMises.eps");
+   91 :
+   92 : // Write files
+   93 : ofstream ff("output.dat");
+   94 : for (int i = 0; i < 100; i++) {
+   95 :     // x, y, Sxx, Syy, Sxy
+   96 :     real xline = -a / 2 + a * i / 100.;
+   97 :     real yline = 0;
+   98 :     // Write file numerical solution
+   99 :     ff << xline << ", " << yline
+  100 :        << ", " << sigmaxx(xline, yline)
+  101 :        << ", " << sigmayy(xline, yline)
+  102 :        << ", " << sigmaxy(xline, yline)
+  103 :        << endl;
+  104 : }
+  105 :  sizestack + 1024 =7592  ( 6568 )
+ 
+ 
+ Error: 240 0 240
+Error: The boundary is not closed => All triangles are outside
+ Fatal error in the mesh generator 888
+  current line = 26
+Meshing error: Bamg
+ number : 888,
+ catch Err bamg
+Meshing error: Bamg
+ number : 888,
+ err code 5 ,  mpirank 0
+ try getConsole C:\Users\user\Desktop\Final\test.edp.txt

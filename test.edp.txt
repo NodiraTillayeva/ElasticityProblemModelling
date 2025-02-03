@@ -1,0 +1,120 @@
+
+
+New chat
+//--------------------------------------------------------------------
+// Dimensions
+real a = 10.0; // Side length of the rhombus
+real angle = 60.0; // Angle of the rhombus in degrees
+
+// Elastic constants
+real E = 1e10; // Young's modulus
+real nu = 0.3; // Poisson's ratio
+
+real G = E / (2 * (1 + nu)); // Shear modulus
+real lambda = E * nu / ((1 + nu) * (1 - 2 * nu)); // Lame constant
+
+// Stresses
+real Sx = 10e6;
+real Sy = 10e6;
+
+//--------------------------------------------------------------------
+// Define boundaries of the rhombus
+//--------------------------------------------------------------------
+border Bottom(t=-a/2, a/2){ 
+    x = t; 
+    y = -tan(angle*pi/180)*abs(t);
+}
+border Right(t=-tan(angle*pi/180)*a/2, tan(angle*pi/180)*a/2){ 
+    x = a/2; 
+    y = t;
+}
+border Top(t=a/2, -a/2){ 
+    x = t; 
+    y = tan(angle*pi/180)*abs(t);
+}
+border Left(t=tan(angle*pi/180)*a/2, -tan(angle*pi/180)*a/2){ 
+    x = -a/2; 
+    y = t;
+}
+
+// SHOW DOMAIN (plot boundaries)
+plot(Bottom(20) + Right(20) + Top(20) + Left(20), wait=true);
+plot(Bottom(20) + Right(20) + Top(20) + Left(20), wait=true);
+
+//--------------------------------------------------------------------
+// Create mesh
+int n = 40; // Number of mesh nodes on the borders
+mesh Omega = buildmesh(Bottom(n) + Right(n) + Top(n) + Left(n));
+
+// Plot mesh interactively
+plot(Omega, wait=true);
+
+// *** Added: Output mesh as an EPS file ***
+plot(Omega, cmm = "Mesh", wait = true, ps = "mesh.eps");
+
+// FE spaces
+fespace Displacement(Omega, P1); // Linear shape functions
+fespace Stress(Omega, P0);         // Piecewise constants
+
+Displacement u1, u2, v1, v2;
+Stress sigmaxx, sigmayy, sigmaxy;
+
+//--------------------------------------------------------------------
+// Definition of 2 macros:
+// Macro for strain
+macro e(u1, u2) [ dx(u1), (dy(u1) + dx(u2)) / 2, (dx(u2) + dy(u1)) / 2, dy(u2) ] // eps_xx, eps_xy, eps_yx, eps_yy
+
+// Macro for stress
+macro sigma(u1, u2) [ (lambda + 2. * G) * e(u1, u2)[0] + lambda * e(u1, u2)[3],
+                        2. * G * e(u1, u2)[1],
+                        2. * G * e(u1, u2)[2],
+                        lambda * e(u1, u2)[0] + (lambda + 2. * G) * e(u1, u2)[3] ]
+// stress s_xx, s_xy, s_yx, s_yy
+
+// Define system of equations
+problem Elasticity([u1, u2], [v1, v2]) =
+    int2d(Omega)(sigma(u1, u2)' * e(v1, v2))
+    // Boundary conditions
+    + on(Left, u1 = 0) // Dirichlet boundary conditions
+    + on(Bottom, u2 = 0)
+    + int1d(Omega, Right)(Sx * v1) // Neumann boundary conditions
+    + int1d(Omega, Top)(Sy * v2);
+
+//--------------------------------------------------------------------
+// Solve system
+Elasticity;
+
+// Stresses
+sigmaxx = sigma(u1, u2)[0];
+sigmayy = sigma(u1, u2)[3];
+sigmaxy = sigma(u1, u2)[1]; // (alternatively, use [2])
+
+// Von Mises stress
+fespace VonMises(Omega, P0);
+VonMises vonMises = sqrt(sigmaxx^2 + sigmayy^2 - sigmaxx * sigmayy + 3 * sigmaxy^2);
+
+//--------------------------------------------------------------------
+// Plot on the deformed surface
+mesh Th = movemesh(Omega, [x + 10 * u1, y + 10 * u2]);
+plot(Th, cmm = "Deformed configuration", wait = 1, ps = "deformed.eps");
+
+// Plot the deformation field and stress
+plot([u1, u2], coef = 10, cmm = "Displacement field", wait = 1, value = true, ps = "displacement.eps");
+plot(sigmaxx, fill = 1, cmm = "Stress sigmaxx", wait = 1, value = true, ps = "sigmaxx.eps");
+plot(sigmayy, fill = 1, cmm = "Stress sigmayy", wait = 1, value = true, ps = "sigmayy.eps");
+plot(sigmaxy, fill = 1, cmm = "Stress sigmaxy", wait = 1, value = true, ps = "sigmaxy.eps");
+plot(vonMises, fill = 1, cmm = "Von Mises Stress", wait = 1, value = true, ps = "vonMises.eps");
+
+// Write files
+ofstream ff("output.dat");
+for (int i = 0; i < 100; i++) {
+    // x, y, Sxx, Syy, Sxy
+    real xline = -a / 2 + a * i / 100.;
+    real yline = 0;
+    // Write file numerical solution
+    ff << xline << ", " << yline
+       << ", " << sigmaxx(xline, yline)
+       << ", " << sigmayy(xline, yline)
+       << ", " << sigmaxy(xline, yline)
+       << endl;
+}
